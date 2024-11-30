@@ -1,1 +1,1 @@
-A 2d dodge game inspired by android gaame of same name.
+A 2d dodge game inspired by android game of same name.
