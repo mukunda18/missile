@@ -7,37 +7,42 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(MissileGame
         main.cpp
         stateManager.cpp
-        stateManager.h
         screen.cpp
-        screen.h
         menu.cpp
-        menu.h
         button.cpp
-        button.h
         missile.cpp
-        missile.h
         plane.cpp
-        plane.h
         math.cpp
         overlay.cpp
-        overlay.h
 )
 
 # SFML configuration
-set(SFML_DIR C:/SFML/lib/cmake/SFML)
+# Use the SFML_DIR environment variable passed by the GitHub Actions workflow
+if(DEFINED ENV{SFML_DIR})
+    set(SFML_DIR $ENV{SFML_DIR})
+else ()
+    set(SFML_DIR C:/SFML/lib/cmake/SFML)
+endif()
+
+# Look for SFML package
+find_package(SFML REQUIRED COMPONENTS graphics window system audio network)
 
 # Include SFML headers
-include_directories(C:/SFML/include/SFML)
+target_include_directories(MissileGame PRIVATE ${SFML_INCLUDE_DIR})
 
+# Link SFML libraries
+target_link_libraries(MissileGame PRIVATE sfml-graphics sfml-window sfml-system sfml-audio sfml-network)
 
-find_package(SFML COMPONENTS graphics window system audio network REQUIRED)
+# Platform-specific definitions
+if(WIN32)
+    add_definitions(-D_WINDOWS)
+elseif(UNIX)
+    add_definitions(-D_LINUX)
+endif()
 
-# Link static SFML libraries
-target_link_libraries(MissileGame
-        sfml-graphics
-        sfml-window
-        sfml-system
-        sfml-audio
-        sfml-network
-        sfml-main
-)
+# Compiler-specific flags
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(MissileGame PRIVATE -Wall -Wextra -pedantic)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(MissileGame PRIVATE /W4)
+endif()
