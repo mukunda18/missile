@@ -6,10 +6,9 @@
 #include "overlay.h"
 
 class missile: public screen{
-    sf::Clock clock1,clock2,clock3;
+    sf::Clock clock1,clock2;
     int time = 0;
     sf::Text timer;
-    sf::Music bg_music;
 
     bool game_over=false,option=false;
     overlay game_overlay,option_overlay;

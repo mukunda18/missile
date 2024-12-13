@@ -2,7 +2,7 @@
 
 button::button(const sf::Texture &texture, const sf::Vector2f position, float scale) {
     sprite.setTexture(texture);
-    sprite.setOrigin(sprite.getLocalBounds().getSize().x/2,sprite.getLocalBounds().getSize().y/2);
+    sprite.setOrigin(sprite.getLocalBounds().width/2,sprite.getLocalBounds().height/2);
     sprite.setPosition(position);
     sprite.setScale(scale,scale);
     this->scale = sprite.getScale().x;

@@ -96,8 +96,8 @@ plane::plane(const sf::Texture& texture) {
 
 player::player(const sf::Texture& texture, const sf::Vector2f windows_size):
 plane(texture) {
-    rotation_speed = 4;
-    const float scale = (windows_size.x/30)/sprite.getLocalBounds().getSize().x;
+    rotation_speed = 3;
+    const float scale = (windows_size.x/30)/sprite.getLocalBounds().width;
     sprite.setScale(scale,scale);
     sprite.setPosition(windows_size.x/2,windows_size.y/2);
     sprite.setRotation(0);
@@ -108,7 +108,7 @@ plane(texture) {
     rotation_speed = rot;
     this->speed = speed;
     const float size = (windows_size.x/50);
-    sprite.setScale(size/sprite.getLocalBounds().getSize().x,size/sprite.getLocalBounds().getSize().y);
+    sprite.setScale(size/sprite.getLocalBounds().width,size/sprite.getLocalBounds().height);
     sprite.setPosition(pos);
     sprite.setRotation(angle);
 }

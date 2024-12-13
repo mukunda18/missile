@@ -24,7 +24,7 @@ menu::menu(sf::RenderWindow &window): screen(window) {
     bg_texture.loadFromFile(resourcepath+"menu/background.png");
     bg_sprite.setTexture(bg_texture);
     bg_sprite.setPosition(bg_pos);
-    bg_sprite.setScale((windows_size.x*2)/bg_sprite.getLocalBounds().getSize().x,(windows_size.y*2)/bg_sprite.getLocalBounds().getSize().y);
+    bg_sprite.setScale((windows_size.x*2)/bg_sprite.getLocalBounds().width,(windows_size.y*2)/bg_sprite.getLocalBounds().height);
 
     button_texture.loadFromFile(resourcepath+"menu/button.png");
     sf::Vector2f start = {windows_size.x/2, windows_size.y * 0.25f};

@@ -68,12 +68,6 @@ missile::missile(sf::RenderWindow &window): screen(window) {
     }
     enemies = std::vector<enemy>(8);
     init_overlays();
-
-    bg_music.openFromFile(resourcepath+"sounds/sound.mp3");
-    bg_music.setLoop(true);
-    bg_music.setVolume(10);
-    bg_music.setPitch(1.0);
-    bg_music.play();
 }
 
 void missile::eventhandle() {
@@ -126,8 +120,6 @@ void missile::update() {
         }
         const sf::Vector2f toMov = {-std::cos(angle)*plane_speed,-std::sin(angle)*plane_speed};
 
-        float total_p = 0;
-
         for (auto en = enemies.begin(); en != enemies.end(); ) {
             if (!en->exploded) {
                 en->moveAngle(Player.getPosition());
@@ -136,15 +128,12 @@ void missile::update() {
             if (!Player.exploded) {
                 en->move(toMov);
             }
-            const float dist = distance(en->getPosition(),Player.getPosition());
-            if (dist*1.5<windows_size.x/2) {
-                total_p+=0.05;
-            }
-            if (dist < windows_size.x/40 and Player.explosion_num<5 and en->explosion_num<5) {
-                if (!en->exploded) {
+            float dist = distance(Player.getPosition(),en->getPosition());
+            if(dist<windows_size.x/40) {
+                if (!en->exploded and Player.explosion_num<4) {
                     en->explode(explosion_textures[0]);
                 }
-                if (!Player.exploded) {
+                if (!Player.exploded and en->explosion_num<4) {
                     Player.explode(explosion_textures[0]);
                 }
             }
@@ -179,17 +168,6 @@ void missile::update() {
             t.setString("YOUR SCORE IS "+ std::to_string(time));
             t.setOrigin(t.getLocalBounds().width/2,t.getLocalBounds().height/2);
             t.setPosition(pos);
-        }
-        if (clock3.getElapsedTime().asSeconds()>0.2) {
-            total_p = std::max(total_p,2.f);
-            float diff = total_p - bg_music.getPitch();
-            if (std::abs(diff)<0.01) {
-                bg_music.setPitch(total_p);
-            }
-            else {
-                bg_music.setPitch(bg_music.getPitch() + (diff<0 ? -0.01f:0.01f));
-            }
-            clock3.restart();
         }
     }
     else if(game_over) {
@@ -296,7 +274,7 @@ void missile::init_overlays() {
             continue;
         }
         text.setString(t);
-        text.setOrigin(text.getLocalBounds().getSize().x/2,text.getLocalBounds().getSize().y/2);
+        text.setOrigin(text.getLocalBounds().width/2,text.getLocalBounds().height/2);
         text.setPosition(align_x,windows_size.y/2 + (i * diff_y));
         option_overlay.texts.push_back(std::move(text));
     }
@@ -335,7 +313,7 @@ void missile::update_setting() {
     else if (difficulty==3) {
         Player.set_speed(4,4);
         for (auto&en : enemies) {
-            en.set_speed(4.5,2);
+            en.set_speed(4.5,2.0);
         }
         enemy_rot_speed = 2;
         t.setString("HARD");
