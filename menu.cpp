@@ -27,16 +27,13 @@ menu::menu(sf::RenderWindow &window): screen(window) {
     bg_sprite.setScale((windows_size.x*2)/bg_sprite.getLocalBounds().width,(windows_size.y*2)/bg_sprite.getLocalBounds().height);
 
     button_texture.loadFromFile(resourcepath+"menu/button.png");
-    sf::Vector2f start = {windows_size.x/2, windows_size.y * 0.25f};
-    const sf::Vector2f spacing = {0, 0.5f*windows_size.y/static_cast<float>(num_button+1)};
+    sf::Vector2f pos = {windows_size.x/2, windows_size.y/2};
     const float button_scale = (windows_size.x/8)/static_cast<float>(button_texture.getSize().x);
 
-    for (int i = 0;i <3;i++) {
-        std::string t= "Button "+std::to_string(i);
-        buttons[t] = button(button_texture,start,button_scale);
-        start = start + spacing;
-        buttons[t].setText(t,fonts[0]);
-    }
+    const std::string t = "PLAY GAME!";
+    buttons[t] = button(button_texture,pos,button_scale);
+    buttons[t].setText(t,fonts[0]);
+
     speaker_texture.loadFromFile(resourcepath+"menu/speaker.png");
     buttons["speaker"] = button(speaker_texture,{30,30},100.f/static_cast<float>(speaker_texture.getSize().x));
 }

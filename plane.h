@@ -10,13 +10,13 @@ protected:
     sf::Sprite explosion_sprite;
     float rotation_speed = 0, speed = 0;
 public:
-    void reset();
+    virtual void reset();
 
     sf::Clock clock;
     bool exploded = false;
     void move();
     void move(sf::Vector2f);
-    void moveAngle(sf::Vector2f);
+    virtual void moveAngle(sf::Vector2f);
     void draw(sf::RenderTarget &, sf::RenderStates ) const override;
     void setPlaneTexture(const sf::Texture&);
     float getRotation() const;
@@ -32,9 +32,20 @@ public:
 };
 
 class player: public plane {
+    sf::Sprite shield_sprite;
+    sf::Sprite boost_effect_sprite;
+    std::vector<sf::Texture> boost_effect_textures;
+    int boost_no = 0;
 public:
+    void set_shield(const sf::Texture & texture);
+    int boost = 0;
+    int shield = 0;
+    int to_boost = false;
     player() = default;
     player(const sf::Texture &,sf::Vector2f);
+    void reset() override;
+    void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
+    void moveAngle(sf::Vector2f) override;
 };
 
 class enemy: public plane {

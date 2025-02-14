@@ -26,7 +26,7 @@ int main() {
         state_manager.render();
         if (!state_manager.states.empty() && state_manager.states.top()->getchangestate() !=0) {
             int change = state_manager.states.top()->getchangestate();
-            if (change == 2) {
+            if (change == 1) {
                 state_manager.changeState(std::make_unique<missile>(window));
             }
             else if (change == -1) {

@@ -1,18 +1,15 @@
 #include "missile.h"
 
 #include <filesystem>
-#include <iostream>
-
 #include "math.cpp"
 
 namespace fs = std::filesystem;
 
 void missile::restart() {
     Player.reset();
-    Player.explosion_num = 0;
     enemies.clear();
+    abilities.clear();
     game_over = false;
-    Player = player(plane_textures[0],windows_size);
     sf::Color c = game_overlay.bg_sprite.getFillColor();
     c.a = 0;
     game_overlay.bg_sprite.setFillColor(c);
@@ -23,8 +20,10 @@ void missile::restart() {
 
 missile::missile(sf::RenderWindow &window): screen(window) {
     game_over = false;
+
     windows_size.x = static_cast<float>(this->window.getSize().x);
     windows_size.y = static_cast<float>(this->window.getSize().y);
+
     const fs::path fontpath = resourcepath + "fonts/";
     for (const auto& entry: fs::directory_iterator(fontpath)) {
         sf::Font font;
@@ -56,9 +55,20 @@ missile::missile(sf::RenderWindow &window): screen(window) {
         texture.loadFromFile(entry.path().string());
         btn_textures.push_back(std::move(texture));
     }
+    const fs::path ability_png = resourcepath + "abilities";
+    for (const auto&entry : fs::directory_iterator(ability_png)) {
+        sf::Texture texture;
+        texture.loadFromFile(entry.path().string());
+        ability_textures.push_back(std::move(texture));
+    }
+    shield_texture.loadFromFile(resourcepath+"effects/shield.png");
+
     Player = player(plane_textures[0],windows_size);
+    Player.set_shield(shield_texture);
+
     bg_texture.loadFromFile(resourcepath+"missile/background1.jpg");
     bg_scale = { windows_size.x/static_cast<float>(bg_texture.getSize().x),windows_size.y/static_cast<float>(bg_texture.getSize().y)};
+
     int i = 0;
     for (auto & bg_sprite : bg_sprites){
         bg_sprite.setTexture(bg_texture);
@@ -66,8 +76,10 @@ missile::missile(sf::RenderWindow &window): screen(window) {
         bg_sprite.setPosition(i%2?windows_size.x:0,i/2?windows_size.y:0);
         i++;
     }
-    enemies = std::vector<enemy>(8);
     init_overlays();
+
+    boost_bar = Bar(sf::Color::Yellow,sf::Color::White,sf::Vector2f(windows_size.x/20,windows_size.y*0.75f),sf::Vector2f(windows_size.x*0.02f,windows_size.y*0.05f));
+    shield_bar = Bar(sf::Color::Blue,sf::Color::White,sf::Vector2f(windows_size.x/20,windows_size.y*0.75f),sf::Vector2f(windows_size.x - ( windows_size.x*0.02f+windows_size.x/20 ),windows_size.y*0.05f));
 }
 
 void missile::eventhandle() {
@@ -96,6 +108,12 @@ void missile::eventhandle() {
             }
         }
     }
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+        Player.to_boost = true;
+    }
+    else {
+        Player.to_boost = false;
+    }
 }
 
 void missile::update() {
@@ -110,6 +128,9 @@ void missile::update() {
         }
         if (clock1.getElapsedTime().asSeconds() > static_cast<float>(enemy_spawn_timer)) {
             add_enemy();
+            if (abilities.size()<4) {
+                add_ability();
+            }
             clock1.restart();
         }
         const sf::Vector2f toRot = {static_cast<float>(sf::Mouse::getPosition(window).x), static_cast<float>(sf::Mouse::getPosition(window).y)};
@@ -118,7 +139,17 @@ void missile::update() {
             Player.moveAngle(toRot);
             update_bg(angle);
         }
-        const sf::Vector2f toMov = {-std::cos(angle)*plane_speed,-std::sin(angle)*plane_speed};
+        if (Player.shield) {
+            Player.shield -= 1;
+        }
+        if (Player.to_boost and Player.boost) {
+            Player.boost -= 1;
+            plane_speed_multiplier = 1.5;
+        }
+        else {
+            plane_speed_multiplier = 1;
+        }
+        const sf::Vector2f toMov = {-std::cos(angle)*plane_speed * plane_speed_multiplier,-std::sin(angle)*plane_speed * plane_speed_multiplier};
 
         for (auto en = enemies.begin(); en != enemies.end(); ) {
             if (!en->exploded) {
@@ -128,13 +159,19 @@ void missile::update() {
             if (!Player.exploded) {
                 en->move(toMov);
             }
-            float dist = distance(Player.getPosition(),en->getPosition());
-            if(dist<windows_size.x/40) {
+            if(const float dist = distance(Player.getPosition(),en->getPosition()); dist<windows_size.x/40) {
+                if (!Player.exploded and en->explosion_num<4) {
+                    if (Player.shield) {
+                        if (collided_enemies.find(&(*en)) == collided_enemies.end()) {
+                            Player.shield = std::max(Player.shield - 600, 0);
+                            collided_enemies.insert(&(*en));
+                        }
+                    } else if (collided_enemies.find(&(*en)) == collided_enemies.end()) {
+                        Player.explode(explosion_textures[0]);
+                    }
+                }
                 if (!en->exploded and Player.explosion_num<4) {
                     en->explode(explosion_textures[0]);
-                }
-                if (!Player.exploded and en->explosion_num<4) {
-                    Player.explode(explosion_textures[0]);
                 }
             }
             if (en->clock.getElapsedTime().asSeconds() > static_cast<float>(enemy_spawn_timer * 4) or (en->exploded and en->clock.getElapsedTime().asSeconds()>explosion_time)) {
@@ -145,14 +182,38 @@ void missile::update() {
                     en->explode();
                 }
             }
-
             if (en->explosion_num==9) {
+                collided_enemies.erase(&(*en));
                 en = enemies.erase(en);
             }
             else {
                 ++en;
             }
         }
+        for (auto ability = abilities.begin(); ability != abilities.end();) {
+            if (is_inside_window(ability->get_pos(),windows_size)) {
+                ability->clock.restart();
+            }
+            if (!Player.exploded) {
+                ability->move(toMov);
+            }
+            if (ability->clock.getElapsedTime().asMilliseconds()>5000) {
+                ability = abilities.erase(ability);
+            }
+            if ( ability->check( Player.getPosition()) ) {
+                if (ability->type) {
+                    Player.shield = std::min(Player.shield + 600, max_shield);
+                }
+                else {
+                    Player.boost = std::min(Player.boost + 300, max_boost);
+                }
+                ability = abilities.erase(ability);
+            }
+            else {
+                ++ability;
+            }
+        }
+
         if (Player.exploded and Player.clock.getElapsedTime().asSeconds()>explosion_time) {
             if (Player.explosion_num<7) {
                 Player.explode(explosion_textures[Player.explosion_num]);
@@ -161,7 +222,11 @@ void missile::update() {
                 Player.explode();
             }
         }
-        if (Player.explosion_num==12) {
+        bool temp = false;
+        for (const auto&en: enemies) {
+            temp = temp || en.exploded;
+        }
+        if (Player.explosion_num>12 and !temp) {
             game_over = true;
             sf::Text& t = game_overlay.texts[0];
             const sf::Vector2f pos = t.getPosition();
@@ -169,6 +234,11 @@ void missile::update() {
             t.setOrigin(t.getLocalBounds().width/2,t.getLocalBounds().height/2);
             t.setPosition(pos);
         }
+        float percentage = float(Player.boost)/float(max_boost);
+        boost_bar.update(percentage);
+        percentage = float(Player.shield)/float(max_shield);
+        shield_bar.update(percentage);
+
     }
     else if(game_over) {
         game_overlay.update();
@@ -227,7 +297,7 @@ void missile::update() {
 void missile::update_bg(const float angle) {
     const float toMoveX = (bg_sprites[0].getPosition().x<-windows_size.x ? 1.f : (bg_sprites[0].getPosition().x>0 ? -1.f : 0));
     const float toMoveY = (bg_sprites[0].getPosition().y<-windows_size.y ? 1.f : (bg_sprites[0].getPosition().y>0 ? -1.f : 0));
-    const sf::Vector2f toMove = {-plane_speed * std::cos(angle) + toMoveX * windows_size.x,-plane_speed * std::sin(angle) + toMoveY * windows_size.y};
+    const sf::Vector2f toMove = {-plane_speed *plane_speed_multiplier* std::cos(angle) + toMoveX * windows_size.x,-plane_speed*plane_speed_multiplier * std::sin(angle) + toMoveY * windows_size.y};
     for (auto& bg: bg_sprites) {
         bg.move(toMove);
     }
@@ -280,7 +350,6 @@ void missile::init_overlays() {
     }
 }
 
-
 void missile::add_enemy() {
     const int rand1 = random_num(1);
     const int rand2 = random_num(1);
@@ -303,6 +372,7 @@ void missile::update_setting() {
         enemy_rot_speed = 1.5;
     }
     else if (difficulty==2) {
+        plane_speed = 4;
         Player.set_speed(4,4);
         t.setString("MEDIUM");
         for (auto&en : enemies) {
@@ -311,6 +381,7 @@ void missile::update_setting() {
         enemy_rot_speed = 1.5;
     }
     else if (difficulty==3) {
+        plane_speed = 4;
         Player.set_speed(4,4);
         for (auto&en : enemies) {
             en.set_speed(4.5,2.0);
@@ -325,6 +396,24 @@ void missile::update_setting() {
     option_overlay.texts[4].setString(std::to_string(enemy_spawn_timer));
 }
 
+bool missile::is_inside_window(const sf::Vector2f objectPos, const sf::Vector2f &windowSize) {
+    return (objectPos.x >= 0 && objectPos.x <= windowSize.x &&
+            objectPos.y >= 0 && objectPos.y <= windowSize.y);
+}
+
+void missile::add_ability() {
+
+    abilities.emplace_back(ability_textures[ab],windows_size,ab);
+    ab = (ab+1)%2;
+    float angle = Player.getRotation() * mul;
+    const float dist = std::pow( (windows_size.x*windows_size.x) + (windows_size.y*windows_size.y), 0.5f )/2;
+
+    angle += static_cast<float>(random_num(1)) * (random_num(1)? 1.f:-1.f);
+    float x = (std::cos(angle) * dist) + Player.getPosition().x;
+    float y = (std::sin(angle) * dist) + Player.getPosition().y;
+
+    abilities.back().set_pos( sf::Vector2f(x,y) );
+}
 
 void missile::render() {
     window.clear(sf::Color::Black);
@@ -334,8 +423,13 @@ void missile::render() {
     for (auto& enemy: enemies) {
         window.draw(enemy);
     }
+    for (auto& ability: abilities) {
+        window.draw(ability);
+    }
     window.draw(Player);
     window.draw(timer);
+    window.draw(boost_bar);
+    window.draw(shield_bar);
     if (game_over) {
         window.draw(game_overlay);
     }
